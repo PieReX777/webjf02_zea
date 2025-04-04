@@ -1,20 +1,28 @@
-FROM richarvey/nginx-php-fpm:3.1.6
+FROM webdevops/php-nginx:8.2-alpine
 
-COPY . .
+COPY . /var/www/html
 
-# Image config
-ENV SKIP_COMPOSER 1
-ENV WEBROOT /var/www/html/public
-ENV PHP_ERRORS_STDERR 1
-ENV RUN_SCRIPTS 1
-ENV REAL_IP_HEADER 1
+WORKDIR /var/www/html
 
-# Laravel config
+# Install dependencies
+RUN apk add --no-cache composer && \
+    composer install --no-dev --optimize-autoloader
+
+# Laravel optimizations
+RUN php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan view:cache
+
+# Permissions
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Environment variables
+ENV PORT 8080
 ENV APP_ENV production
 ENV APP_DEBUG false
 ENV LOG_CHANNEL stderr
+ENV PHP_ERRORS_STDERR 1
 
-# Allow composer to run as root
-ENV COMPOSER_ALLOW_SUPERUSER 1
+EXPOSE $PORT
 
-CMD ["/start.sh"]
+CMD ["sh", "-c", "php-fpm & nginx -g 'daemon off;'"]
